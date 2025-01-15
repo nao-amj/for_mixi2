@@ -1,12 +1,12 @@
 ### 2025年SNS活用方針（7）
 - 1. Palmu                  新規：配信・リンク集 
-    ┣─ 2.  X                新規：テキスト・画像
-    ┣─ 3. mixi2             新規：テキスト・画像＋ブックマーク
-    ┃    ┗─ Instagram(nao-chan)
-    ┣─ 4. BlueSky           再開：テキスト・画像
-    ┣─ 5. Instagram(Main)   促進：画像
-    ┣─ 6. TikTok            再開：画像・動画
-    ┗─ 7. GitHub            再開：開発＋ブックマーク
+    - ┣─ 2.  X                新規：テキスト・画像
+    - ┣─ 3. mixi2             新規：テキスト・画像＋ブックマーク
+      ┃    - ┗─ Instagram(nao-chan)
+    - ┣─ 4. BlueSky           再開：テキスト・画像
+    - ┣─ 5. Instagram(Main)   促進：画像
+    - ┣─ 6. TikTok            再開：画像・動画
+    - ┗─ 7. GitHub            再開：開発＋ブックマーク
 
 ### 別の動き（3）：
 - 8. Instagram(@nao_anm.msc.jpn)    促進
