@@ -2,13 +2,14 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>シムシティ風ゲーム</title>
+<title>制限時間シムシティ</title>
 <style>
     canvas { border: 1px solid black; }
     #controls { position: absolute; top: 10px; left: 10px; }
     #tools { position: absolute; top: 50px; left: 10px; }
     #status { position: absolute; top: 10px; right: 10px; font-family: monospace; }
     #info { position: absolute; top: 50px; right: 10px; font-family: monospace; width: 200px; }
+    #ranking { position: absolute; top: 150px; right: 10px; font-family: monospace; width: 200px; }
     .button { margin: 5px 0; padding: 5px; }
     .money { 
         font-size: 18px;
@@ -20,7 +21,7 @@
 <body>
 <canvas id="gameCanvas"></canvas>
 <div id="controls">
-    <button id="startStop" class="button">Start/Stop</button>
+    <button id="startStop" class="button">Start</button>
     <button id="reset" class="button">Reset</button>
     <button id="fastForward" class="button">Fast Forward</button>
 </div>
@@ -34,13 +35,14 @@
 </div>
 <div id="status"></div>
 <div id="info"></div>
+<div id="ranking"></div>
 
 <script>
 // キャンバスの設定
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-canvas.width = 800; // グリッド数を2倍に
-canvas.height = 800; // グリッド数を2倍に
+canvas.width = 800;
+canvas.height = 800;
 let scale = 1; // ズームスケール
 
 // UI要素
@@ -49,6 +51,7 @@ const resetBtn = document.getElementById('reset');
 const fastForwardBtn = document.getElementById('fastForward');
 const infoDiv = document.getElementById('info');
 const statusDiv = document.getElementById('status');
+const rankingDiv = document.getElementById('ranking');
 const tools = {
     'residential': document.getElementById('residential'),
     'commercial': document.getElementById('commercial'),
@@ -59,18 +62,20 @@ const zoomInBtn = document.getElementById('zoomIn');
 const zoomOutBtn = document.getElementById('zoomOut');
 
 // グリッドのサイズとパラメーター
-const gridSize = 20; // グリッドサイズは変わらず
+const gridSize = 20;
 const grid = [];
-const populationDensity = 0.3; // 人口密度
-const pollutionRate = 0.05; // 汚染率
-const trafficImpact = 0.1; // 交通量の影響
+const populationDensity = 0.3;
+const pollutionRate = 0.05;
+const trafficImpact = 0.1;
 let gameRunning = false;
 let elapsedTime = 0;
-let currentTool = 'residential'; // 現在のツール
-let money = 10000; // 初期資金
-let totalPopulation = 0; // 総人口
-const taxRate = { residential: 0.01, commercial: 0.03, industrial: 0.02 }; // 税率
-let lastMoney = money; // 前回の金額を保存
+let currentTool = 'residential';
+let money = 10000;
+let totalPopulation = 0;
+const taxRate = { residential: 0.01, commercial: 0.03, industrial: 0.02 };
+let lastMoney = money;
+const gameDuration = 60; // 制限時間 60秒
+let lastTime = 0; // 最後に時間を更新したタイムスタンプ
 
 // グリッドを初期化
 function initializeGrid() {
@@ -85,7 +90,7 @@ function initializeGrid() {
 // 描画関数
 function drawGrid() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.save(); // 現在の状態を保存
+    ctx.save();
     ctx.scale(scale, scale);
     for (let y = 0; y < grid.length; y++) {
         for (let x = 0; x < grid[y].length; x++) {
@@ -96,7 +101,7 @@ function drawGrid() {
             ctx.strokeRect(x * gridSize, y * gridSize, gridSize, gridSize);
         }
     }
-    ctx.restore(); // 状態を復元
+    ctx.restore();
 }
 
 function getColorByType(type) {
@@ -105,7 +110,7 @@ function getColorByType(type) {
         case 'commercial': return 'orange';
         case 'industrial': return 'brown';
         case 'road': return 'gray';
-        default: return 'green'; // empty
+        default: return 'green';
     }
 }
 
@@ -129,11 +134,10 @@ function updateInfo(taxIncome = 0) {
         }
     }
     
-    let beforeMoney = money;
     money = Math.max(0, money + taxIncome);
     
     // 資金表示を更新
-    statusDiv.innerHTML = ''; // 既存の内容をクリア
+    statusDiv.innerHTML = '';
     const moneyElement = document.createElement('div');
     moneyElement.className = 'money';
     moneyElement.textContent = `$${numberWithCommas(Math.floor(money))}`;
@@ -150,33 +154,41 @@ function updateInfo(taxIncome = 0) {
     lastMoney = money;
     
     // 情報テキストを更新
+    // ここで秒数の小数点以下を表示しないように調整
+    infoText += `Time Left: ${Math.max(0, Math.floor(gameDuration - elapsedTime))} sec\n`;
     infoText += `Residential Areas: ${cellCount.residential}\n`;
     infoText += `Commercial Areas: ${cellCount.commercial}\n`;
     infoText += `Industrial Areas: ${cellCount.industrial}\n`;
     infoText += `Roads: ${cellCount.road}\n`;
     infoText += `Total Population: ${totalPopulation}\n`;
     infoText += `Total Pollution: ${totalPollution.toFixed(2)}\n`;
-    infoDiv.textContent = infoText; // 情報を直接設定
+    infoDiv.textContent = infoText;
 
     // ステータス情報を追加
     const statusInfo = document.createElement('div');
-    statusInfo.textContent = `Elapsed Time: ${elapsedTime} sec\nTax Income: $${taxIncome.toFixed(2)}`;
+    statusInfo.textContent = `Tax Income: $${taxIncome.toFixed(2)}`;
     statusDiv.appendChild(statusInfo);
 }
 
-// 数値をカンマ区切りにする関数
 function numberWithCommas(x) {
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 // 時間経過による変化
-function updateGrid() {
+function updateGrid(time) {
+    let deltaTime = (time - lastTime) / 1000; // 秒単位で経過時間を計算
+    lastTime = time;
+    
+    if (gameRunning) {
+        elapsedTime += (fastForwardBtn.textContent === 'Fast Forward') ? deltaTime * 2 : deltaTime;
+    }
+
     let taxIncome = 0;
     for (let y = 0; y < grid.length; y++) {
         for (let x = 0; x < grid[y].length; x++) {
             let cell = grid[y][x];
             if (cell.type === 'residential') {
-                if (Math.random() > 0.9) cell.population++; // 人口の増加
+                if (Math.random() > 0.9) cell.population++;
                 cell.pollution += cell.population * pollutionRate;
                 let pollutionSpread = 0;
                 for (let dy = -1; dy <= 1; dy++) {
@@ -189,20 +201,21 @@ function updateGrid() {
                 cell.pollution += pollutionSpread;
                 taxIncome += cell.population * taxRate.residential;
             } else if (['commercial', 'industrial'].includes(cell.type)) {
-                taxIncome += taxRate[cell.type] * 10; // 仮の商業・工業の税収
+                taxIncome += taxRate[cell.type] * 10;
             }
         }
     }
-    updateInfo(taxIncome); // 情報を更新
+    updateInfo(taxIncome);
+    
+    if (elapsedTime >= gameDuration) {
+        gameOver();
+    }
 }
 
 // メインループ
-function gameLoop() {
-    if (gameRunning) {
-        elapsedTime += (fastForwardBtn.textContent === 'Fast Forward') ? 1 : 5;
-        updateGrid();
-        drawGrid();
-    }
+function gameLoop(time) {
+    updateGrid(time);
+    drawGrid();
     requestAnimationFrame(gameLoop);
 }
 
@@ -218,8 +231,15 @@ for (let tool in tools) {
 
 // ゲームの操作
 startStopBtn.addEventListener('click', () => {
-    gameRunning = !gameRunning;
-    startStopBtn.textContent = gameRunning ? 'Stop' : 'Start';
+    if (!gameRunning) {
+        elapsedTime = 0;
+        gameRunning = true;
+        lastTime = performance.now(); // ゲーム開始時のタイムスタンプを記録
+        startStopBtn.textContent = 'Stop';
+    } else {
+        gameRunning = false;
+        startStopBtn.textContent = 'Start';
+    }
 });
 
 resetBtn.addEventListener('click', () => {
@@ -232,6 +252,7 @@ resetBtn.addEventListener('click', () => {
     gameRunning = false;
     startStopBtn.textContent = 'Start';
     fastForwardBtn.textContent = 'Fast Forward';
+    rankingDiv.textContent = '';
 });
 
 fastForwardBtn.addEventListener('click', () => {
@@ -260,17 +281,38 @@ canvas.addEventListener('click', (e) => {
         if (money >= cost) {
             grid[y][x] = { type: currentTool, population: 0, pollution: 0, traffic: 0 };
             money -= cost;
-            updateInfo(); // ここでは税収は0なので、パラメータなしで呼び出し
+            updateInfo(); 
             drawGrid();
         }
     }
 });
 
+// ゲーム終了処理
+function gameOver() {
+    gameRunning = false;
+    startStopBtn.textContent = 'Start';
+    
+    // スコアを保存
+    let scores = JSON.parse(localStorage.getItem('scores') || '[]');
+    scores.push(money);
+    scores.sort((a, b) => b - a).splice(10); // 上位10スコアだけ保持
+    localStorage.setItem('scores', JSON.stringify(scores));
+
+    // ランキング表示
+    let rankingText = "<h3>Ranking</h3>";
+    scores.forEach((score, index) => {
+        rankingText += `${index + 1}. $${numberWithCommas(score)}<br>`;
+    });
+    rankingDiv.innerHTML = rankingText;
+    
+    alert(`Game Over! Your Score: $${numberWithCommas(money)}`);
+}
+
 // 初期化
 initializeGrid();
 updateInfo();
 drawGrid();
-gameLoop();
+requestAnimationFrame(gameLoop);
 </script>
 </body>
 </html>
