@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>シムシティ風ゲーム</title>
+<style>
+    canvas { border: 1px solid black; }
+    #controls { position: absolute; top: 10px; left: 10px; }
+    #tools { position: absolute; top: 50px; left: 10px; }
+    #status { position: absolute; top: 10px; right: 10px; font-family: monospace; }
+    #info { position: absolute; top: 50px; right: 10px; font-family: monospace; width: 200px; }
+    .button { margin: 5px 0; padding: 5px; }
+    .money { 
+        font-size: 18px;
+        font-weight: bold;
+        transition: color 0.5s;
+    }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<div id="controls">
+    <button id="startStop" class="button">Start/Stop</button>
+    <button id="reset" class="button">Reset</button>
+    <button id="fastForward" class="button">Fast Forward</button>
+</div>
+<div id="tools">
+    <button id="residential" class="button">Residential</button>
+    <button id="commercial" class="button">Commercial</button>
+    <button id="industrial" class="button">Industrial</button>
+    <button id="road" class="button">Road</button>
+    <button id="zoomIn" class="button">+</button>
+    <button id="zoomOut" class="button">-</button>
+</div>
+<div id="status"></div>
+<div id="info"></div>
+
+<script>
+// キャンバスの設定
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = 800; // グリッド数を2倍に
+canvas.height = 800; // グリッド数を2倍に
+let scale = 1; // ズームスケール
+
+// UI要素
+const startStopBtn = document.getElementById('startStop');
+const resetBtn = document.getElementById('reset');
+const fastForwardBtn = document.getElementById('fastForward');
+const infoDiv = document.getElementById('info');
+const statusDiv = document.getElementById('status');
+const tools = {
+    'residential': document.getElementById('residential'),
+    'commercial': document.getElementById('commercial'),
+    'industrial': document.getElementById('industrial'),
+    'road': document.getElementById('road')
+};
+const zoomInBtn = document.getElementById('zoomIn');
+const zoomOutBtn = document.getElementById('zoomOut');
+
+// グリッドのサイズとパラメーター
+const gridSize = 20; // グリッドサイズは変わらず
+const grid = [];
+const populationDensity = 0.3; // 人口密度
+const pollutionRate = 0.05; // 汚染率
+const trafficImpact = 0.1; // 交通量の影響
+let gameRunning = false;
+let elapsedTime = 0;
+let currentTool = 'residential'; // 現在のツール
+let money = 10000; // 初期資金
+let totalPopulation = 0; // 総人口
+const taxRate = { residential: 0.01, commercial: 0.03, industrial: 0.02 }; // 税率
+let lastMoney = money; // 前回の金額を保存
+
+// グリッドを初期化
+function initializeGrid() {
+    for (let y = 0; y < canvas.height / gridSize; y++) {
+        grid[y] = [];
+        for (let x = 0; x < canvas.width / gridSize; x++) {
+            grid[y][x] = { type: 'empty', population: 0, pollution: 0, traffic: 0 };
+        }
+    }
+}
+
+// 描画関数
+function drawGrid() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save(); // 現在の状態を保存
+    ctx.scale(scale, scale);
+    for (let y = 0; y < grid.length; y++) {
+        for (let x = 0; x < grid[y].length; x++) {
+            let cell = grid[y][x];
+            ctx.fillStyle = getColorByType(cell.type);
+            ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
+            ctx.strokeStyle = 'black';
+            ctx.strokeRect(x * gridSize, y * gridSize, gridSize, gridSize);
+        }
+    }
+    ctx.restore(); // 状態を復元
+}
+
+function getColorByType(type) {
+    switch (type) {
+        case 'residential': return 'lightblue';
+        case 'commercial': return 'orange';
+        case 'industrial': return 'brown';
+        case 'road': return 'gray';
+        default: return 'green'; // empty
+    }
+}
+
+// 情報更新関数
+function updateInfo(taxIncome = 0) {
+    let infoText = '';
+    let totalPollution = 0;
+    totalPopulation = 0;
+    let cellCount = { residential: 0, commercial: 0, industrial: 0, road: 0 };
+    
+    for (let y = 0; y < grid.length; y++) {
+        for (let x = 0; x < grid[y].length; x++) {
+            let cell = grid[y][x];
+            if (cell.type !== 'empty') {
+                cellCount[cell.type]++;
+                if (cell.type === 'residential') {
+                    totalPopulation += cell.population;
+                }
+                totalPollution += cell.pollution;
+            }
+        }
+    }
+    
+    let beforeMoney = money;
+    money = Math.max(0, money + taxIncome);
+    
+    // 資金表示を更新
+    statusDiv.innerHTML = ''; // 既存の内容をクリア
+    const moneyElement = document.createElement('div');
+    moneyElement.className = 'money';
+    moneyElement.textContent = `$${numberWithCommas(Math.floor(money))}`;
+    statusDiv.appendChild(moneyElement);
+    
+    if (money > lastMoney) {
+        moneyElement.style.color = 'green';
+    } else if (money < lastMoney) {
+        moneyElement.style.color = 'red';
+    } else {
+        moneyElement.style.color = 'black';
+    }
+
+    lastMoney = money;
+    
+    // 情報テキストを更新
+    infoText += `Residential Areas: ${cellCount.residential}\n`;
+    infoText += `Commercial Areas: ${cellCount.commercial}\n`;
+    infoText += `Industrial Areas: ${cellCount.industrial}\n`;
+    infoText += `Roads: ${cellCount.road}\n`;
+    infoText += `Total Population: ${totalPopulation}\n`;
+    infoText += `Total Pollution: ${totalPollution.toFixed(2)}\n`;
+    infoDiv.textContent = infoText; // 情報を直接設定
+
+    // ステータス情報を追加
+    const statusInfo = document.createElement('div');
+    statusInfo.textContent = `Elapsed Time: ${elapsedTime} sec\nTax Income: $${taxIncome.toFixed(2)}`;
+    statusDiv.appendChild(statusInfo);
+}
+
+// 数値をカンマ区切りにする関数
+function numberWithCommas(x) {
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+// 時間経過による変化
+function updateGrid() {
+    let taxIncome = 0;
+    for (let y = 0; y < grid.length; y++) {
+        for (let x = 0; x < grid[y].length; x++) {
+            let cell = grid[y][x];
+            if (cell.type === 'residential') {
+                if (Math.random() > 0.9) cell.population++; // 人口の増加
+                cell.pollution += cell.population * pollutionRate;
+                let pollutionSpread = 0;
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        if (y + dy >= 0 && y + dy < grid.length && x + dx >= 0 && x + dx < grid[y].length) {
+                            pollutionSpread += grid[y + dy][x + dx].pollution * 0.01;
+                        }
+                    }
+                }
+                cell.pollution += pollutionSpread;
+                taxIncome += cell.population * taxRate.residential;
+            } else if (['commercial', 'industrial'].includes(cell.type)) {
+                taxIncome += taxRate[cell.type] * 10; // 仮の商業・工業の税収
+            }
+        }
+    }
+    updateInfo(taxIncome); // 情報を更新
+}
+
+// メインループ
+function gameLoop() {
+    if (gameRunning) {
+        elapsedTime += (fastForwardBtn.textContent === 'Fast Forward') ? 1 : 5;
+        updateGrid();
+        drawGrid();
+    }
+    requestAnimationFrame(gameLoop);
+}
+
+// ツール選択
+for (let tool in tools) {
+    tools[tool].addEventListener('click', () => {
+        currentTool = tool;
+        for (let t in tools) {
+            tools[t].style.backgroundColor = t === currentTool ? 'lightyellow' : '';
+        }
+    });
+}
+
+// ゲームの操作
+startStopBtn.addEventListener('click', () => {
+    gameRunning = !gameRunning;
+    startStopBtn.textContent = gameRunning ? 'Stop' : 'Start';
+});
+
+resetBtn.addEventListener('click', () => {
+    initializeGrid();
+    elapsedTime = 0;
+    money = 10000;
+    totalPopulation = 0;
+    updateInfo();
+    drawGrid();
+    gameRunning = false;
+    startStopBtn.textContent = 'Start';
+    fastForwardBtn.textContent = 'Fast Forward';
+});
+
+fastForwardBtn.addEventListener('click', () => {
+    fastForwardBtn.textContent = fastForwardBtn.textContent === 'Fast Forward' ? 'Normal Speed' : 'Fast Forward';
+});
+
+// ズーム機能
+zoomInBtn.addEventListener('click', () => {
+    scale = Math.min(2, scale + 0.1);
+    drawGrid();
+});
+
+zoomOutBtn.addEventListener('click', () => {
+    scale = Math.max(0.5, scale - 0.1);
+    drawGrid();
+});
+
+// マウスクリックで建築
+canvas.addEventListener('click', (e) => {
+    if (!gameRunning) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) / (gridSize * scale));
+    const y = Math.floor((e.clientY - rect.top) / (gridSize * scale));
+    if (x >= 0 && x < grid[0].length && y >= 0 && y < grid.length) {
+        const cost = currentTool === 'road' ? 500 : 1000;
+        if (money >= cost) {
+            grid[y][x] = { type: currentTool, population: 0, pollution: 0, traffic: 0 };
+            money -= cost;
+            updateInfo(); // ここでは税収は0なので、パラメータなしで呼び出し
+            drawGrid();
+        }
+    }
+});
+
+// 初期化
+initializeGrid();
+updateInfo();
+drawGrid();
+gameLoop();
+</script>
+</body>
+</html>
