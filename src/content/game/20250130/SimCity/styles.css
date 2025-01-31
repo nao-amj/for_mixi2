@@ -1,0 +1,85 @@
+body {
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    margin: 0;
+    padding: 20px;
+    background-color: #f4f4f4;
+    color: #333;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between; /* Ensure space between columns */
+}
+
+#time-progress-container {
+    width: 100%;
+    background-color: #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+#time-progress-bar {
+    height: 20px;
+    background-color: #007bff;
+    width: 0;
+    transition: width 10s linear;
+}
+
+#clock {
+    font-size: 1.5rem;
+    text-align: center;
+    margin-bottom: 20px;
+    background-color: #fff;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    color: #1b1c1c;
+    font-weight: bold;
+    order: -1; /* This will move the clock to the top */
+    width: 100%; /* Ensure it spans the full width */
+}
+
+#game-output, #city-details, #cityMap {
+    font-size: 1.2rem;
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    width: 30%; /* Adjust width to fit three columns */
+    display: inline-block;
+    vertical-align: top;
+}
+
+#game-output {
+    margin-right: 2%;
+    width: 10%; 
+}
+
+#city-details {
+    margin-left: 2%;
+    width: 20%; 
+}
+#cityMap {
+    border: 1px solid black;
+    margin-top: 10px; /* Reduce the top margin to move it higher */
+    width: 30%; /* Ensure it spans the full width */
+    height: auto;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.notification {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    z-index: 1000;
+}

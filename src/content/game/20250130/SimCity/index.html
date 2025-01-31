@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple SimCity</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="time-progress-container">
+        <div id="time-progress-bar"></div>
+    </div>
+    <div id="clock"></div>
+    <pre id="game-output"></pre>
+    <div id="commands">
+        <h2>操作コマンド</h2>
+        <ul>
+            <li>1: 住宅を建設</li>
+            <li>2: 工場を建設</li>
+            <li>3: 道路を建設</li>
+            <li>4: 次の年へ</li>
+            <li>5: 税率を設定</li>
+            <li>6: 都市の詳細を見る</li>
+            <li>7: ゲームを終了</li>
+        </ul>
+    </div>
+    <canvas id="cityMap" width="400" height="600"></canvas>
+    <div id="city-details"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
