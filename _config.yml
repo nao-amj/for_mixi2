@@ -8,3 +8,4 @@ redcarpet:
     "superscript",
     "tables"
   ]
+highlighter: pygments
